@@ -16,13 +16,13 @@ const client = new MongoClient('mongodb://localhost:27017', {
 
 // Create and use the GraphQL handler.
 app.all(
-  "/graphql/:collection",
+  "/graphql/:dbname",
   async (req, res) => {
-    const collection = req.params.collection
+    const dbname = req.params.dbname
     await client.connect()
-    const db = client.db(collection)
+    const db = client.db(dbname)
     try {
-      const { schema, root } = await model(collection)
+      const { schema, root } = await model(dbname)
       const handler = createHandler({
         schema,
         rootValue: root,
@@ -36,10 +36,10 @@ app.all(
 )
 
 // Serve the GraphiQL IDE.
-app.get("/:collection", (req, res) => {
-  const collection = req.params.collection
+app.get("/:dbname", (req, res) => {
+  const dbname = req.params.dbname
   res.type("html")
-  res.end(ruruHTML({ endpoint: `/graphql/${collection}` }))
+  res.end(ruruHTML({ endpoint: `/graphql/${dbname}` }))
 })
 
 // Start the server at port

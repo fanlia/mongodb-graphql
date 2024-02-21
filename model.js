@@ -1,7 +1,7 @@
 
 var { buildSchema } = require("graphql")
 
-module.exports = async (name) => {
+module.exports = async (dbname) => {
 
   // Construct a schema, using GraphQL schema language
   var schema = buildSchema(`
