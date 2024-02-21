@@ -1,58 +1,45 @@
 var express = require("express")
 var { createHandler } = require("graphql-http/lib/use/express")
-var { buildSchema } = require("graphql")
 var { ruruHTML } = require("ruru/server")
 
 const { MongoClient, ServerApiVersion } = require('mongodb')
-
-// Construct a schema, using GraphQL schema language
-var schema = buildSchema(`
-  type Query {
-    hello: String
-  }
-`)
-
-// The root provides a resolver function for each API endpoint
-var root = {
-  hello: (root, ctx, field) => {
-    console.log({
-      root,
-      ctx,
-      field,
-    })
-    return "Hello world!"
-  },
-}
+const model = require('./model')
 
 var app = express()
+const client = new MongoClient('mongodb://localhost:27017', {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+})
 
 // Create and use the GraphQL handler.
 app.all(
-  "/graphql",
-  createHandler({
-    schema: schema,
-    rootValue: root,
-    context: async (req) => {
-      const db = new MongoClient('mongodb://localhost:27017', {
-        serverApi: {
-            version: ServerApiVersion.v1,
-            strict: true,
-            deprecationErrors: true,
-        },
+  "/graphql/:collection",
+  async (req, res) => {
+    const collection = req.params.collection
+    await client.connect()
+    const db = client.db(collection)
+    try {
+      const { schema, root } = await model(collection)
+      const handler = createHandler({
+        schema,
+        rootValue: root,
+        context: { req, db },
       })
-      await db.connect()
-      return {
-        req,
-        db,
-      }
-    },
-  })
+      handler(req, res)
+    } catch (e) {
+      res.status(500).end(e.message || e)
+    }
+  }
 )
 
 // Serve the GraphiQL IDE.
-app.get("/", (_req, res) => {
+app.get("/:collection", (req, res) => {
+  const collection = req.params.collection
   res.type("html")
-  res.end(ruruHTML({ endpoint: "/graphql" }))
+  res.end(ruruHTML({ endpoint: `/graphql/${collection}` }))
 })
 
 // Start the server at port
