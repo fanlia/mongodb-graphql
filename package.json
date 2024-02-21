@@ -1,0 +1,23 @@
+{
+  "name": "mongodb-graphql",
+  "version": "1.0.0",
+  "description": "set graphql api for mongodb database",
+  "main": "index.js",
+  "scripts": {
+    "start": "node-dev server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "graphql": "^16.8.1",
+    "graphql-http": "^1.22.0",
+    "mongodb": "^6.3.0",
+    "ruru": "^2.0.0-beta.11"
+  },
+  "devDependencies": {
+    "node-dev": "^8.0.0"
+  }
+}
