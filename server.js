@@ -1,6 +1,7 @@
 var express = require("express")
 var { createHandler } = require("graphql-http/lib/use/express")
 var { ruruHTML } = require("ruru/server")
+var { GraphQLError } = require("graphql")
 
 const { MongoClient, ServerApiVersion } = require('mongodb')
 const model = require('./model')
@@ -30,7 +31,9 @@ app.all(
       })
       handler(req, res)
     } catch (e) {
-      res.status(500).end(e.message || e)
+      res.status(500).send({
+        errors: [new GraphQLError(e)],
+      })
     }
   }
 )
