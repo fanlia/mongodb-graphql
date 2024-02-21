@@ -12,7 +12,7 @@ module.exports = async (dbname) => {
 
   // The root provides a resolver function for each API endpoint
   var root = {
-    hello: (root, ctx, field) => {
+    hello: (args, ctx, field) => {
       console.log({
         root,
         ctx,
