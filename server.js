@@ -7,13 +7,7 @@ const { MongoClient, ServerApiVersion } = require('mongodb')
 const model = require('./model')
 
 var app = express()
-const client = new MongoClient('mongodb://localhost:27017', {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-})
+const client = new MongoClient('mongodb://localhost:27017')
 
 // Create and use the GraphQL handler.
 app.all(
