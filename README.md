@@ -37,6 +37,7 @@ npm start
 - auto generate list type
 - scalar types
     * JSON
+    * DateTime
     * String
     * ID
     * Int
