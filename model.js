@@ -51,7 +51,7 @@ const handle$ = (d) => {
 const get_field_input_type = ({ kind, name, type }) => {
 
   if (kind === 'NamedType') {
-    return ScalarTypeNames.includes(name.value) ? `${name.value}!` : `${name.value}Input!`
+    return ScalarTypeNames.includes(name.value) || name.value.endsWith('Enum') ? `${name.value}!` : `${name.value}Input!`
   }
 
   if (kind === 'ListType') {
@@ -63,6 +63,7 @@ const get_field_input_type = ({ kind, name, type }) => {
 
 const get_collection_info = (type_gql) => {
   const result = parse(type_gql, { noLocation: true })
+  // console.dir(result, { depth: null })
   // get object type
   const types = result.definitions.filter(def => def.kind === 'ObjectTypeDefinition')
   // console.dir(types, { depth: null })
@@ -116,11 +117,13 @@ module.exports = async (dbname) => {
       type Parent {
         _id: ID
         name: String
+        type: ParentEnum
         children: [Child]
       }
       type Child {
         name: String
       }
+      enum ParentEnum { user admin }
   `
   const { gql, typeinfos } = get_collection_info(type_gql)
 
