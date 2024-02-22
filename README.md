@@ -25,6 +25,7 @@ npm start
     name: String
     type: ParentEnum
     children: [Child]
+    created: DateTime
   }
   type Child {
     name: String
@@ -52,11 +53,11 @@ query find {
     query: {      
       filter: {
         # name: "hello2"
-        # _id: "65d5b331a3b1f00d34a089cb"
+        # _id: "65d70156f3ebe4e71655f53e"
       }
       # limit: 2
       sort: {
-        name: -1
+        name: 1
       }
     }
   ) {
@@ -68,6 +69,7 @@ query find {
       children {
         name
       }
+      created
     }
   }
 }
@@ -77,7 +79,7 @@ query stats {
     filter: {}
     pipeline: [
       {
-				__group: {
+        __group: {
           _id: "$name",
           count: { __sum: 1 }
         }
@@ -96,17 +98,17 @@ mutation create {
           name: "child2"
         }
       ]
+      created: "2024-01-01"
     }
   ])
 }
 
 mutation update {
   parent_update(filter: {
-    _id: "65d5b336a3b1f00d34a089cc"
+    _id: "65d7309c006f5f821da57e2c"
   }, data: {
-    __set: {
-    	name: "hello again"
-    }
+    name: "hello again"
+    created: "2024-02-03"
   })
 }
 

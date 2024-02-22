@@ -73,11 +73,11 @@ const handle$ = (d) => {
 const get_field_input_type = ({ kind, name, type }) => {
 
   if (kind === 'NamedType') {
-    return ScalarTypeNames.includes(name.value) || name.value.endsWith('Enum') ? `${name.value}!` : `${name.value}Input!`
+    return ScalarTypeNames.includes(name.value) || name.value.endsWith('Enum') ? `${name.value}` : `${name.value}CreateInput`
   }
 
   if (kind === 'ListType') {
-    return `[${get_field_input_type(type)}]!`
+    return `[${get_field_input_type(type)}!]`
   }
 
   throw new Error('invalid field type')
@@ -89,43 +89,62 @@ const get_collection_info = (type_gql) => {
   // get object type
   const types = result.definitions.filter(def => def.kind === 'ObjectTypeDefinition')
   // console.dir(types, { depth: null })
-  // generate input type
-  const input_gql = types.map(def => {
+  const input_types = types.map(def => {
     const name = def.name.value
 
-    const fields = def.fields.map(field => {
+    const fields = def.fields
+    .map(field => {
       const name = field.name.value
-      if (name === '_id') return ''
       const type = get_field_input_type(field.type)
-      return `  ${name}: ${type}`
-    }).join('\n')
+      return { name, type }
+    })
+    const has_id = fields.some(field => field.name === '_id')
+    return { name, fields, has_id }
+  })
+  // generate extended type
+  const extended_gql = input_types.flatMap(({ name, fields, has_id }) => {
 
-    return `input ${name}Input {\n${fields}\n}`
+    if (has_id) {
+      fields = fields.filter(field => field.name !== '_id')
+      const create_fields = fields.map(({ name, type }) => {
+        return `  ${name}: ${type}!`
+      }).join('\n')
+
+      const update_fields = fields.map(({ name, type }) => {
+        return `  ${name}: ${type}`
+      }).join('\n')
+
+      return [
+        `input ${name}CreateInput {\n${create_fields}\n}`,
+        `input ${name}UpdateInput {\n${update_fields}\n}`,
+        `type ${name}List { count: Int data: [${name}] }`,
+      ]
+
+    } else {
+      const create_fields = fields.map(({ name, type }) => {
+        return `  ${name}: ${type}!`
+      }).join('\n')
+
+      return [
+        `input ${name}CreateInput {\n${create_fields}\n}`,
+      ]
+    }
   }).join('\n')
-  // console.log(input_gql)
-  // get object type with _id
-  const types_with_id = types.filter(def => def.fields.some(field => field.name.value === '_id'))
-  // console.dir(types_with_id, { depth: null })
-  // generate list type
-  const list_gql = types_with_id.map(def => {
-    const name = def.name.value
+  // console.log(extended_gql)
 
-    return `type ${name}List { count: Int data: [${name}] }`
-  }).join('\n')
-  // console.log(list_gql)
+  const gql = [type_gql, extended_gql].join('\n')
 
-  const gql = [type_gql, input_gql, list_gql].join('\n')
-
-  const typeinfos = types_with_id.map(def => {
-    const type = def.name.value
+  const typeinfos = input_types
+  .filter(d => d.has_id)
+  .map(d => {
+    const type = d.name
     const name = type.toLowerCase()
-    const input = `${type}Input`
-    const list = `${type}List`
     return {
       name,
       type,
-      input,
-      list,
+      create: `${type}CreateInput`,
+      update: `${type}UpdateInput`,
+      list: `${type}List`,
     }
   })
 
@@ -144,6 +163,7 @@ module.exports = async (dbname, client) => {
           name: String
           type: ParentEnum
           children: [Child]
+          created: DateTime
         }
         type Child {
           name: String
@@ -207,7 +227,7 @@ module.exports = async (dbname, client) => {
   return { schema, root }
 }
 
-const get_collection_gql = ({ name, type, input, list }) => {
+const get_collection_gql = ({ name, type, create, update, list }) => {
 
   const query = `
     ${name}_find(query: QueryInput): ${list}
@@ -215,8 +235,8 @@ const get_collection_gql = ({ name, type, input, list }) => {
   `
 
   const mutation = `
-    ${name}_create(data: [${input}!]!): Boolean
-    ${name}_update(filter: JSON!, data: JSON!): Boolean
+    ${name}_create(data: [${create}!]!): Boolean
+    ${name}_update(filter: JSON!, data: ${update}!): Boolean
     ${name}_delete(filter: JSON!): Boolean
   `
 
@@ -266,9 +286,7 @@ const get_collection_root = (collection_name = 'docs') => ({
   [`${collection_name}_update`]: async ({ filter, data }, { db }, field) => {
     filter = handleFilter(filter)
     const model = db.collection(collection_name)
-    data = handle$(data)
-
-    const result = await model.updateMany(filter, data)
+    const result = await model.updateMany(filter, { $set: data })
 
     return true
   },
