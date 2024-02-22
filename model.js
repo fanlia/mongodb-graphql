@@ -1,8 +1,30 @@
 
-var { buildSchema, parse, print, specifiedScalarTypes } = require("graphql")
+const { parse, specifiedScalarTypes, GraphQLScalarType, Kind } = require("graphql")
+const { makeExecutableSchema } = require('@graphql-tools/schema')
 const { ObjectId } = require('mongodb')
+const dayjs = require('dayjs')
 
-const ScalarTypeNames = ['JSON', ...specifiedScalarTypes.map(d => d.name)]
+const ScalarTypeNames = ['JSON', 'DateTime', ...specifiedScalarTypes.map(d => d.name)]
+
+const GraphQLDateTime = new GraphQLScalarType({
+  name: 'DateTime',
+  description: 'Date custom scalar type',
+  parseValue(value) {
+    return new Date(value) // value from the client
+  },
+  serialize(value) {
+    return  dayjs(value).format('YYYY-MM-DD HH:mm:ss')// value sent to the client
+  },
+  parseLiteral(ast) {
+    const value = dayjs(ast.value)
+
+    if (!value.isValid()) {
+      throw new Error('invalid date')
+    }
+
+    return value.toDate()
+  }
+})
 
 const handleFilter = (filter = {}) => {
   const { _id, ...other } = filter
@@ -154,6 +176,7 @@ module.exports = async (dbname, client) => {
   // Construct a schema, using GraphQL schema language
   const schema_gql = `
     scalar JSON
+    scalar DateTime
     input QueryInput {
       filter: JSON
       sort: JSON
@@ -168,8 +191,15 @@ module.exports = async (dbname, client) => {
     ${mutation_gql}
     }
   `
+
+  const resolveFunctions = {
+    DateTime: GraphQLDateTime,
+  }
   // console.log(schema_gql)
-  var schema = buildSchema(schema_gql)
+  const schema = makeExecutableSchema({
+    typeDefs: schema_gql,
+    resolvers: resolveFunctions,
+  })
 
   // The root provides a resolver function for each API endpoint
   const root = typeinfos.reduce((m, d) => ({...m, ...get_collection_root(d.name)}), {})
