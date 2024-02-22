@@ -1,5 +1,5 @@
 
-const { parse, specifiedScalarTypes, GraphQLScalarType, Kind } = require("graphql")
+const { parse, specifiedScalarTypes, GraphQLScalarType } = require("graphql")
 const { makeExecutableSchema } = require('@graphql-tools/schema')
 const { ObjectId } = require('mongodb')
 const dayjs = require('dayjs')
