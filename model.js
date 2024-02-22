@@ -1,6 +1,8 @@
 
-var { buildSchema } = require("graphql")
+var { buildSchema, parse, print, specifiedScalarTypes } = require("graphql")
 const { ObjectId } = require('mongodb')
+
+const ScalarTypeNames = ['JSON', ...specifiedScalarTypes.map(d => d.name)]
 
 const handleFilter = (filter = {}) => {
   const { _id, ...other } = filter
@@ -39,12 +41,95 @@ const handle$ = (d) => {
 //
 // console.log(JSON.stringify(handle$(data), null, 2))
 
+
+// const result = parse(gql, { noLocation: true })
+//
+// console.dir(result, { depth: null })
+// console.log(print(result))
+//
+
+const get_field_input_type = ({ kind, name, type }) => {
+
+  if (kind === 'NamedType') {
+    return ScalarTypeNames.includes(name.value) ? `${name.value}!` : `${name.value}Input!`
+  }
+
+  if (kind === 'ListType') {
+    return `[${get_field_input_type(type)}]!`
+  }
+
+  throw new Error('invalid field type')
+}
+
+const get_collection_info = (type_gql) => {
+  const result = parse(type_gql, { noLocation: true })
+  // get object type
+  const types = result.definitions.filter(def => def.kind === 'ObjectTypeDefinition')
+  // console.dir(types, { depth: null })
+  // generate input type
+  const input_gql = types.map(def => {
+    const name = def.name.value
+
+    const fields = def.fields.map(field => {
+      const name = field.name.value
+      if (name === '_id') return ''
+      const type = get_field_input_type(field.type)
+      return `  ${name}: ${type}`
+    }).join('\n')
+
+    return `input ${name}Input {\n${fields}\n}`
+  }).join('\n')
+  // console.log(input_gql)
+  // get object type with _id
+  const types_with_id = types.filter(def => def.fields.some(field => field.name.value === '_id'))
+  // console.dir(types_with_id, { depth: null })
+  // generate list type
+  const list_gql = types_with_id.map(def => {
+    const name = def.name.value
+
+    return `type ${name}List { count: Int data: [${name}] }`
+  }).join('\n')
+  // console.log(list_gql)
+
+  const gql = [type_gql, input_gql, list_gql].join('\n')
+
+  const typeinfos = types_with_id.map(def => {
+    const type = def.name.value
+    const name = type.toLowerCase()
+    const input = `${type}Input`
+    const list = `${type}List`
+    return {
+      name,
+      type,
+      input,
+      list,
+    }
+  })
+
+  return { gql, typeinfos }
+}
+
 module.exports = async (dbname) => {
 
-  const parents_gql = get_collection_gql('parents')
+  // get type_gql by dbname
+  const type_gql = `
+      type Parent {
+        _id: ID
+        name: String
+        children: [Child]
+      }
+      type Child {
+        name: String
+      }
+  `
+  const { gql, typeinfos } = get_collection_info(type_gql)
+
+  const collection_gqls = typeinfos.map(get_collection_gql)
+  const query_gql = collection_gqls.map(d => d.query).join('\n')
+  const mutation_gql = collection_gqls.map(d => d.mutation).join('\n')
 
   // Construct a schema, using GraphQL schema language
-  var schema = buildSchema(`
+  const schema_gql = `
     scalar JSON
     input QueryInput {
       filter: JSON
@@ -52,74 +137,39 @@ module.exports = async (dbname) => {
       limit: Int
       offset: Int
     }
-    ${parents_gql.type}
+    ${gql}
     type Query {
-      hello: String
-    ${parents_gql.query}
+    ${query_gql}
     }
     type Mutation {
-    ${parents_gql.mutaion}
+    ${mutation_gql}
     }
-  `)
-
-  const parents_root = get_collection_root('parents')
-
-  const root = {
-    hello: (args, ctx, field) => {
-      console.log({
-        root,
-        ctx,
-        field,
-      })
-      return "Hello world!"
-    },
-    ...parents_root,
-  }
+  `
+  // console.log(schema_gql)
+  var schema = buildSchema(schema_gql)
 
   // The root provides a resolver function for each API endpoint
+  const root = typeinfos.reduce((m, d) => ({...m, ...get_collection_root(d.name)}), {})
 
   return { schema, root }
 }
 
-const get_collection_gql = (collection_name = 'docs') => {
-
-  const type = `
-    input ChildInput {
-      name: String!
-    }
-    input ParentInput {
-      name: String!
-      children: [ChildInput!]!
-    }
-    type Parent {
-      _id: String
-      name: String
-      children: [Child]
-    }
-    type Child {
-      name: String
-    }
-    type Parents {
-      count: Int
-      data: [Parent]
-    }
-  `
+const get_collection_gql = ({ name, type, input, list }) => {
 
   const query = `
-    ${collection_name}_find(query: QueryInput): Parents
-    ${collection_name}_stats(filter: JSON, pipeline: [JSON!]!): JSON
+    ${name}_find(query: QueryInput): ${list}
+    ${name}_stats(filter: JSON, pipeline: [JSON!]!): JSON
   `
 
-  const mutaion = `
-    ${collection_name}_create(data: [ParentInput!]!): Boolean
-    ${collection_name}_update(filter: JSON!, data: JSON!): Boolean
-    ${collection_name}_delete(filter: JSON!): Boolean
+  const mutation = `
+    ${name}_create(data: [${input}!]!): Boolean
+    ${name}_update(filter: JSON!, data: JSON!): Boolean
+    ${name}_delete(filter: JSON!): Boolean
   `
 
   return {
-    type,
     query,
-    mutaion,
+    mutation,
   }
 }
 
