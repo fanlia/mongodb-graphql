@@ -110,21 +110,41 @@ const get_collection_info = (type_gql) => {
   return { gql, typeinfos }
 }
 
-module.exports = async (dbname) => {
+module.exports = async (dbname, client) => {
 
-  // get type_gql by dbname
-  const type_gql = `
-      type Parent {
-        _id: ID
-        name: String
-        type: ParentEnum
-        children: [Child]
-      }
-      type Child {
-        name: String
-      }
-      enum ParentEnum { user admin }
-  `
+  const definition = client.db('definition')
+  let type_gql = null
+
+  if (dbname === 'demo') {
+    type_gql = `
+        type Parent {
+          _id: ID
+          name: String
+          type: ParentEnum
+          children: [Child]
+        }
+        type Child {
+          name: String
+        }
+        enum ParentEnum { user admin }
+    `
+  } else if (dbname === 'definition') {
+    // get type_gql by admin
+    type_gql = `
+        type Definition { _id: ID name: String gql: String }
+    `
+  } else {
+    // get type_gql by dbname
+    const found = await definition.collection('definition').findOne({ name: dbname })
+    if (found) {
+      type_gql = found.gql
+    }
+  }
+
+  if (!type_gql) {
+    throw new Error(`${dbname} not found`)
+  }
+
   const { gql, typeinfos } = get_collection_info(type_gql)
 
   const collection_gqls = typeinfos.map(get_collection_gql)

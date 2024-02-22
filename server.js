@@ -9,6 +9,8 @@ const model = require('./model')
 var app = express()
 const client = new MongoClient('mongodb://localhost:27017')
 
+
+
 // Create and use the GraphQL handler.
 app.all(
   "/graphql/:dbname",
@@ -17,7 +19,7 @@ app.all(
     await client.connect()
     const db = client.db(dbname)
     try {
-      const { schema, root } = await model(dbname)
+      const { schema, root } = await model(dbname, client)
       const handler = createHandler({
         schema,
         rootValue: root,
