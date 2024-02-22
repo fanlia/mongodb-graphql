@@ -1,6 +1,20 @@
 # mongodb-graphql
 set graphql api for mongodb database
 
+## Getting Started
+
+### env
+
+- MONGO_URI=mongodb://localhost:27017
+- PORT=4002
+
+### develop
+
+```sh
+npm i
+npm start
+```
+
 ## How to
 
 - prepare graphql type definition
