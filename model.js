@@ -26,15 +26,6 @@ const GraphQLDateTime = new GraphQLScalarType({
   }
 })
 
-const handleFilter = (filter = {}) => {
-  const { _id, ...other } = filter
-  if (!_id) return filter
-  return {
-    ...other,
-    _id: new ObjectId(_id),
-  }
-}
-
 const handle$ = (d) => {
   if (Array.isArray(d)) {
     return d.map(handle$)
@@ -254,7 +245,7 @@ const get_collection_root = (collection_name = 'docs') => ({
       limit = 10,
       offset = 0,
     } = query
-    filter = handleFilter(filter)
+    filter = handle$(filter)
     const model = db.collection(collection_name)
     const [count, data] = await Promise.all([
       model.countDocuments(filter),
@@ -266,7 +257,7 @@ const get_collection_root = (collection_name = 'docs') => ({
     }
   },
   [`${collection_name}_stats`]: async ({ filter, pipeline }, { db }, field) => {
-    filter = handleFilter(filter)
+    filter = handle$(filter)
     const model = db.collection(collection_name)
     pipeline = handle$(pipeline)
     pipeline = [
@@ -279,19 +270,24 @@ const get_collection_root = (collection_name = 'docs') => ({
   },
   [`${collection_name}_create`]: async ({ data }, { db }, field) => {
     const model = db.collection(collection_name)
+
+    data = data.map(d => ({
+      ...d,
+      _id: new ObjectId().toString(),
+    }))
     const result = await model.insertMany(data)
 
     return true
   },
   [`${collection_name}_update`]: async ({ filter, data }, { db }, field) => {
-    filter = handleFilter(filter)
+    filter = handle$(filter)
     const model = db.collection(collection_name)
     const result = await model.updateMany(filter, { $set: data })
 
     return true
   },
   [`${collection_name}_delete`]: async ({ filter }, { db }, field) => {
-    filter = handleFilter(filter)
+    filter = handle$(filter)
     const model = db.collection(collection_name)
     const result = await model.deleteMany(filter)
 
