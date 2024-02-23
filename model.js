@@ -125,9 +125,11 @@ const get_collection_info = (type_gql) => {
 
   // generate relationResolvers
   let relationResolvers = {}
+  let relation_patched_type_gqls = []
   type_gql = type_gql.replace(/type\s*(\w+)\s*\{[^]*?\}/g, (type_val, from_type) => {
     type_val = type_val.replace(/((\w+)_id)\s*:\s*ID/g, (val, relation_id, to) => {
       const to_type = to[0].toUpperCase() + to.slice(1)
+      const from = from_type.toLowerCase()
 
       relationResolvers[from_type] = relationResolvers[from_type] || {}
       relationResolvers[from_type][to] = async (d, args, { db }) => {
@@ -135,14 +137,33 @@ const get_collection_info = (type_gql) => {
         const found = relation_id_value && await db.collection(to).findOne({ _id: relation_id_value })
         return found
       }
+      relationResolvers[to_type] = relationResolvers[to_type] || {}
+      relation_patched_type_gqls.push(`type ${to_type} {
+        ${from}_find(query: QueryInput): ${from_type}List
+      }`)
+      relationResolvers[to_type][`${from}_find`] = async (d, { query = {} }, { db }) => {
+        const model = db.collection(from)
+        const { filter = {}, ...other } = query
+        const newquery = {
+          ...other,
+          filter: {
+            ...filter,
+            [relation_id]: d._id,
+          },
+        }
+        return model_find(model, newquery)
+      }
       return `${val} ${to}: ${to_type}`
     })
     return type_val
   })
   // console.log(type_gql)
+  // console.log(relation_patched_type_gqls)
   // console.log(relationResolvers)
 
-  const gql = [type_gql, extended_gql].join('\n')
+  const gql = [type_gql, relation_patched_type_gqls.join('\n'), extended_gql].join('\n')
+
+  // console.log(gql)
 
   const typeinfos = input_types
   .filter(d => d.has_id)
@@ -263,23 +284,9 @@ const get_collection_gql = ({ name, type, create, update, list }) => {
 }
 
 const get_collection_root = (collection_name = 'docs') => ({
-  [`${collection_name}_find`]: async ({ query = {} }, { db }, field) => {
-    let {
-      filter,
-      sort,
-      limit = 10,
-      offset = 0,
-    } = query
-    filter = handle$(filter)
+  [`${collection_name}_find`]: async ({ query }, { db }, field) => {
     const model = db.collection(collection_name)
-    const [count, data] = await Promise.all([
-      model.countDocuments(filter),
-      model.find(filter).sort(sort).limit(limit).skip(offset).toArray(),
-    ])
-    return {
-      count,
-      data,
-    }
+    return model_find(model, query)
   },
   [`${collection_name}_stats`]: async ({ filter, pipeline }, { db }, field) => {
     filter = handle$(filter)
@@ -319,3 +326,21 @@ const get_collection_root = (collection_name = 'docs') => ({
     return true
   },
 })
+
+const model_find = async (model, query = {}) => {
+  let {
+    filter,
+    sort,
+    limit = 10,
+    offset = 0,
+  } = query
+  filter = handle$(filter)
+  const [count, data] = await Promise.all([
+    model.countDocuments(filter),
+    model.find(filter).sort(sort).limit(limit).skip(offset).toArray(),
+  ])
+  return {
+    count,
+    data,
+  }
+}
