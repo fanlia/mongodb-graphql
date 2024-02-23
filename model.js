@@ -123,6 +123,25 @@ const get_collection_info = (type_gql) => {
   }).join('\n')
   // console.log(extended_gql)
 
+  // generate relationResolvers
+  let relationResolvers = {}
+  type_gql = type_gql.replace(/type\s*(\w+)\s*\{[^]*?\}/g, (type_val, from_type) => {
+    type_val = type_val.replace(/((\w+)_id)\s*:\s*ID/g, (val, relation_id, to) => {
+      const to_type = to[0].toUpperCase() + to.slice(1)
+
+      relationResolvers[from_type] = relationResolvers[from_type] || {}
+      relationResolvers[from_type][to] = async (d, args, { db }) => {
+        const relation_id_value = d[relation_id]
+        const found = relation_id_value && await db.collection(to).findOne({ _id: relation_id_value })
+        return found
+      }
+      return `${val} ${to}: ${to_type}`
+    })
+    return type_val
+  })
+  // console.log(type_gql)
+  // console.log(relationResolvers)
+
   const gql = [type_gql, extended_gql].join('\n')
 
   const typeinfos = input_types
@@ -139,7 +158,7 @@ const get_collection_info = (type_gql) => {
     }
   })
 
-  return { gql, typeinfos }
+  return { gql, typeinfos, relationResolvers }
 }
 
 module.exports = async (dbname, client) => {
@@ -149,12 +168,17 @@ module.exports = async (dbname, client) => {
 
   if (dbname === 'demo') {
     type_gql = `
+        type Friend {
+          _id: ID
+          name: String
+        }
         type Parent {
           _id: ID
           name: String
           type: ParentEnum
           children: [Child]
           created: DateTime
+          friend_id: ID
         }
         type Child {
           name: String
@@ -178,7 +202,7 @@ module.exports = async (dbname, client) => {
     throw new Error(`${dbname} not found`)
   }
 
-  const { gql, typeinfos } = get_collection_info(type_gql)
+  const { gql, typeinfos, relationResolvers } = get_collection_info(type_gql)
 
   const collection_gqls = typeinfos.map(get_collection_gql)
   const query_gql = collection_gqls.map(d => d.query).join('\n')
@@ -204,6 +228,7 @@ module.exports = async (dbname, client) => {
   `
 
   const resolveFunctions = {
+    ...relationResolvers,
     DateTime: GraphQLDateTime,
   }
   // console.log(schema_gql)
