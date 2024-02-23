@@ -16,9 +16,10 @@ app.all(
   async (req, res) => {
     const dbname = req.params.dbname
     await client.connect()
-    const db = client.db(dbname)
+    const db = client.db(`graphql_${dbname}`)
+    const definition = client.db('graphql_definition')
     try {
-      const { schema, root } = await model(dbname, client)
+      const { schema, root } = await model(dbname, definition)
       const handler = createHandler({
         schema,
         rootValue: root,

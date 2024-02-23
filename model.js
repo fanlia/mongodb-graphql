@@ -182,9 +182,8 @@ const get_collection_info = (type_gql) => {
   return { gql, typeinfos, relationResolvers }
 }
 
-module.exports = async (dbname, client) => {
+module.exports = async (dbname, definition) => {
 
-  const definition = client.db('definition')
   let type_gql = null
 
   if (dbname === 'demo') {
