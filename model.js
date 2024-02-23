@@ -251,7 +251,7 @@ const get_collection_gql = ({ name, type, create, update, list }) => {
   `
 
   const mutation = `
-    ${name}_create(data: [${create}!]!): Boolean
+    ${name}_create(data: [${create}!]!): [${type}]
     ${name}_update(filter: JSON!, data: ${update}!): Boolean
     ${name}_delete(filter: JSON!): Boolean
   `
@@ -302,7 +302,7 @@ const get_collection_root = (collection_name = 'docs') => ({
     }))
     const result = await model.insertMany(data)
 
-    return true
+    return data
   },
   [`${collection_name}_update`]: async ({ filter, data }, { db }, field) => {
     filter = handle$(filter)
