@@ -20,7 +20,7 @@ app.get('/api/upload', (req, res) => {
   res.send(`
     <h2>Upload</h2>
     <form action="/api/upload" enctype="multipart/form-data" method="post">
-      <div>File: <input type="file" name="file" /></div>
+      <p>File: <input type="file" name="file" multiple /></p>
       <input type="submit" value="Upload" />
     </form>
   `);
