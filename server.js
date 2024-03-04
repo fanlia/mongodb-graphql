@@ -1,4 +1,6 @@
+const path = require('node:path')
 const express = require("express")
+const { formidable } = require('formidable')
 const { createHandler } = require("graphql-http/lib/use/express")
 const { ruruHTML } = require("ruru/server")
 const { GraphQLError } = require("graphql")
@@ -6,9 +8,42 @@ const { GraphQLError } = require("graphql")
 const { MongoClient, ServerApiVersion } = require('mongodb')
 const model = require('./model')
 
+const uploadDir = path.join(__dirname, './upload')
+
 const app = express()
 const mongodb_uri = process.env.MONGO_URI || 'mongodb://localhost:27017'
 const client = new MongoClient(mongodb_uri)
+
+app.use('/upload', express.static(uploadDir));
+
+app.get('/api/upload', (req, res) => {
+  res.send(`
+    <h2>Upload</h2>
+    <form action="/api/upload" enctype="multipart/form-data" method="post">
+      <div>File: <input type="file" name="file" /></div>
+      <input type="submit" value="Upload" />
+    </form>
+  `);
+});
+
+app.post('/api/upload', (req, res, next) => {
+  const origin = req.headers['origin'] || ''
+  const form = formidable({
+    uploadDir,
+    keepExtensions: true,
+  });
+
+  form.parse(req, (err, fields, files) => {
+    if (err) {
+      next(err);
+      return;
+    }
+    const infos = files.file.map(d => ({
+      url: `${origin}/upload/${d.newFilename}`,
+    }))
+    res.json(infos);
+  });
+});
 
 // Create and use the GraphQL handler.
 app.all(
