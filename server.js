@@ -1,5 +1,6 @@
 const path = require('node:path')
 const express = require("express")
+const cors = require('cors')
 const { formidable } = require('formidable')
 const { createHandler } = require("graphql-http/lib/use/express")
 const { ruruHTML } = require("ruru/server")
@@ -13,6 +14,8 @@ const uploadDir = path.join(__dirname, './upload')
 const app = express()
 const mongodb_uri = process.env.MONGO_URI || 'mongodb://localhost:27017'
 const client = new MongoClient(mongodb_uri)
+
+app.use(cors())
 
 app.use('/upload', express.static(uploadDir));
 
