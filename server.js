@@ -42,6 +42,7 @@ app.post('/api/upload', (req, res, next) => {
       return;
     }
     const infos = files.file.map(d => ({
+      name: d.originalFilename,
       url: `${origin}/upload/${d.newFilename}`,
     }))
     res.json(infos);
