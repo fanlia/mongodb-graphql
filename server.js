@@ -30,7 +30,6 @@ app.get('/api/upload', (req, res) => {
 });
 
 app.post('/api/upload', (req, res, next) => {
-  const origin = req.headers['origin'] || ''
   const form = formidable({
     uploadDir,
     keepExtensions: true,
@@ -43,7 +42,7 @@ app.post('/api/upload', (req, res, next) => {
     }
     const infos = files.file.map(d => ({
       name: d.originalFilename,
-      url: `${origin}/upload/${d.newFilename}`,
+      url: `upload/${d.newFilename}`,
     }))
     res.json(infos);
   });
