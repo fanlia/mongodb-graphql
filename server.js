@@ -1,4 +1,5 @@
 const path = require('node:path')
+const url = require('node:url')
 const express = require("express")
 const cors = require('cors')
 const { formidable } = require('formidable')
@@ -30,6 +31,7 @@ app.get('/api/upload', (req, res) => {
 });
 
 app.post('/api/upload', (req, res, next) => {
+
   const form = formidable({
     uploadDir,
     keepExtensions: true,
@@ -40,10 +42,18 @@ app.post('/api/upload', (req, res, next) => {
       next(err);
       return;
     }
-    const infos = files.file.map(d => ({
-      name: d.originalFilename,
-      url: `upload/${d.newFilename}`,
-    }))
+    const infos = files.file.map(d => {
+      const fullurl = url.format({
+        protocol: req.protocol,
+        host: req.get('host'),
+        pathname: `upload/${d.newFilename}`,
+      })
+
+      return {
+        name: d.originalFilename,
+        url: fullurl,
+      }
+    })
     res.json(infos);
   });
 });
