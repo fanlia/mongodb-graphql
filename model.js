@@ -208,7 +208,7 @@ module.exports = async (dbname, definition) => {
   } else if (dbname === 'definition') {
     // get type_gql by admin
     type_gql = `
-        type Definition { _id: ID name: String gql: String }
+        type Definition { _id: ID name: String gql: String types: JSON }
     `
   } else {
     // get type_gql by dbname
